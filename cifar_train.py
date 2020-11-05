@@ -170,8 +170,12 @@ def main_worker(gpu, ngpus_per_node, args):
     with open(os.path.join(args.root_log, args.store_name, 'args.txt'), 'w') as f:
         f.write(str(args))
     tf_writer = SummaryWriter(log_dir=os.path.join(args.root_log, args.store_name))
+    if args.epochs > 200:
+        times = 10
+    else:
+        times = 1
     for epoch in range(args.start_epoch, args.epochs):
-        adjust_learning_rate(optimizer, epoch, args)
+        adjust_learning_rate(optimizer, epoch, args, times=times)
 
         train_sampler = None
         if args.train_rule == 'None':
@@ -195,7 +199,7 @@ def main_worker(gpu, ngpus_per_node, args):
             per_cls_weights = torch.FloatTensor(per_cls_weights).cuda(args.gpu)
         elif args.train_rule == 'DRW':
             train_sampler = None
-            idx = epoch // 160
+            idx = epoch // (160 * times)
             betas = [0, 0.9999]
             effective_num = 1.0 - np.power(betas[idx], cls_num_list)
             per_cls_weights = (1.0 - betas[idx]) / np.array(effective_num)
@@ -368,14 +372,14 @@ def validate(val_loader, model, criterion, epoch, args, log=None, tf_writer=None
 
     return top1.avg
 
-def adjust_learning_rate(optimizer, epoch, args):
+def adjust_learning_rate(optimizer, epoch, args, times=1):
     """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
     epoch = epoch + 1
-    if epoch <= 5:
-        lr = args.lr * epoch / 5
-    elif epoch > 180:
+    if epoch <= 5 * times:
+        lr = args.lr * epoch / (5 * times)
+    elif epoch > 180 * times:
         lr = args.lr * 0.0001
-    elif epoch > 160:
+    elif epoch > 160 * times:
         lr = args.lr * 0.01
     else:
         lr = args.lr
