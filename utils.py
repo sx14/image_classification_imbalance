@@ -8,6 +8,49 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix
 from sklearn.utils.multiclass import unique_labels
 
+
+class SimpleUpSampler(torch.utils.data.sampler.Sampler):
+
+    def __init__(self, dataset, indices=None, num_samples=None):
+        # if indices is not provided,
+        # all elements in the dataset will be considered
+        self.indices = list(range(len(dataset))) \
+            if indices is None else indices
+
+        # if num_samples is not provided,
+        # draw `len(indices)` samples in each iteration
+        self.num_samples = len(self.indices) \
+            if num_samples is None else num_samples
+
+        # distribution of classes in the dataset
+        label_to_count = [0] * len(np.unique(dataset.targets))
+        label_to_ids = [[] for _ in range(len(label_to_count))]
+        for idx in self.indices:
+            label = self._get_label(dataset, idx)
+            label_to_count[label] += 1
+            label_to_ids[label].append(idx)
+        
+        up_sampled_ids = []
+        max_count = max(label_to_count)
+        max_id_ids = np.array(range(max_count))
+        for label, count in enumerate(label_to_count):
+            curr_id_ids = max_id_ids % count
+            curr_ids = np.array(label_to_ids[label])
+            curr_ids = curr_ids[curr_id_ids]
+            up_sampled_ids.extend(curr_ids.tolist())
+        up_sampled_ids = np.array(up_sampled_ids)
+        self.up_sampled_ids = up_sampled_ids
+
+    def _get_label(self, dataset, idx):
+        return dataset.targets[idx]
+
+    def __iter__(self):
+        np.random.shuffle(self.up_sampled_ids)
+        return iter(self.up_sampled_ids.tolist())
+
+    def __len__(self):
+        return len(self.up_sampled_ids)
+
 class ImbalancedDatasetSampler(torch.utils.data.sampler.Sampler):
 
     def __init__(self, dataset, indices=None, num_samples=None):

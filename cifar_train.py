@@ -35,7 +35,7 @@ parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet32',
 parser.add_argument('--loss_type', default="CE", type=str, help='loss type')
 parser.add_argument('--imb_type', default="exp", type=str, help='imbalance type')
 parser.add_argument('--imb_factor', default=0.01, type=float, help='imbalance factor')
-parser.add_argument('--train_rule', default='None', type=str, help='data sampling strategy for train loader')
+parser.add_argument('--train_rule', default='Upsample', type=str, help='data sampling strategy for train loader')
 parser.add_argument('--rand_number', default=0, type=int, help='fix random number for data sampling')
 parser.add_argument('--exp_str', default='0', type=str, help='number to indicate which experiment it is')
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
@@ -164,16 +164,6 @@ def main_worker(gpu, ngpus_per_node, args):
     print(cls_num_list)
     args.cls_num_list = cls_num_list
     
-    train_sampler = None
-        
-    train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=args.batch_size, shuffle=(train_sampler is None),
-        num_workers=args.workers, pin_memory=True, sampler=train_sampler)
-
-    val_loader = torch.utils.data.DataLoader(
-        val_dataset, batch_size=100, shuffle=False,
-        num_workers=args.workers, pin_memory=True)
-
     # init log for training
     log_training = open(os.path.join(args.root_log, args.store_name, 'log_train.csv'), 'w')
     log_testing = open(os.path.join(args.root_log, args.store_name, 'log_test.csv'), 'w')
@@ -183,11 +173,15 @@ def main_worker(gpu, ngpus_per_node, args):
     for epoch in range(args.start_epoch, args.epochs):
         adjust_learning_rate(optimizer, epoch, args)
 
+        train_sampler = None
         if args.train_rule == 'None':
-            train_sampler = None  
-            per_cls_weights = None 
+            train_sampler = None
+            per_cls_weights = None
         elif args.train_rule == 'Resample':
             train_sampler = ImbalancedDatasetSampler(train_dataset)
+            per_cls_weights = None
+        elif args.train_rule == 'Upsample':
+            train_sampler = SimpleUpSampler(train_dataset)
             per_cls_weights = None
         elif args.train_rule == 'Reweight':
             train_sampler = None
@@ -206,7 +200,15 @@ def main_worker(gpu, ngpus_per_node, args):
             per_cls_weights = torch.FloatTensor(per_cls_weights).cuda(args.gpu)
         else:
             warnings.warn('Sample rule is not listed')
-        
+
+        train_loader = torch.utils.data.DataLoader(
+            train_dataset, batch_size=args.batch_size, shuffle=(train_sampler is None),
+            num_workers=args.workers, pin_memory=True, sampler=train_sampler)
+
+        val_loader = torch.utils.data.DataLoader(
+            val_dataset, batch_size=100, shuffle=False,
+            num_workers=args.workers, pin_memory=True)
+
         if args.loss_type == 'CE':
             criterion = nn.CrossEntropyLoss(weight=per_cls_weights).cuda(args.gpu)
         elif args.loss_type == 'LDAM':
