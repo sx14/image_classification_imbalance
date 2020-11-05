@@ -134,6 +134,13 @@ def save_checkpoint(args, state, is_best):
         shutil.copyfile(filename, filename.replace('pth.tar', 'best.pth.tar'))
 
 
+def load_best_checkpoint(args, model):
+    filename = '%s/%s/ckpt.best.pth.tar' % (args.root_model, args.store_name)
+    ckpt = torch.load(filename, map_location='cpu')
+    model.load_state_dict(ckpt['state_dict'])
+    print('Best weight loaded from: %s' % filename)
+
+
 class AverageMeter(object):
     
     def __init__(self, name, fmt=':f'):
