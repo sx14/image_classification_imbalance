@@ -35,7 +35,7 @@ parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet32',
 parser.add_argument('--loss_type', default="CE", type=str, help='loss type')
 parser.add_argument('--imb_type', default="exp", type=str, help='imbalance type')
 parser.add_argument('--imb_factor', default=0.01, type=float, help='imbalance factor')
-parser.add_argument('--train_rule', default='Upsample', type=str, help='data sampling strategy for train loader')
+parser.add_argument('--train_rule', default='Downsample', type=str, help='data sampling strategy for train loader')
 parser.add_argument('--rand_number', default=0, type=int, help='fix random number for data sampling')
 parser.add_argument('--exp_str', default='0', type=str, help='number to indicate which experiment it is')
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
@@ -182,6 +182,9 @@ def main_worker(gpu, ngpus_per_node, args):
             per_cls_weights = None
         elif args.train_rule == 'Upsample':
             train_sampler = SimpleUpSampler(train_dataset)
+            per_cls_weights = None
+        elif args.train_rule == 'Downsample':
+            train_sampler = SimpleDownSampler(train_dataset)
             per_cls_weights = None
         elif args.train_rule == 'Reweight':
             train_sampler = None
